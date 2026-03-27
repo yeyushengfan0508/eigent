@@ -12,13 +12,11 @@
 # limitations under the License.
 # ========= Copyright 2025-2026 @ Eigent.ai All Rights Reserved. =========
 
-from fastapi_babel import BabelConfigs, Babel
-from pathlib import Path
+from app import api
+from app.component.babel import babel_configs
+from fastapi_babel import BabelMiddleware
 
-babel_configs = BabelConfigs(
-    ROOT_DIR=Path(__file__).parent.parent,
-    BABEL_DEFAULT_LOCALE="en_US",
-    BABEL_TRANSLATION_DIRECTORY="lang",
-)
+# 临时禁用 BabelMiddleware（缺少翻译文件）
+# TODO: 生成翻译文件后恢复
+# api.add_middleware(BabelMiddleware, babel_configs=babel_configs)
 
-babel = Babel(configs=babel_configs)

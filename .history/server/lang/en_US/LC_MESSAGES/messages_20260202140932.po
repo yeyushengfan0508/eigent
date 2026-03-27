@@ -1,0 +1,9 @@
+# English translations for messages.
+# Copyright (C) 2025 Eigent.ai
+# This file is distributed under the same license as the messages package.
+#
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en_US\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
