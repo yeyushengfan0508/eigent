@@ -62,9 +62,9 @@ Cloud version users: outputs are also saved in your cloud workspace according to
 Eigent comes with four ready-to-work agents. Each is equipped with a specific set of tools and shines at specific tasks—click to explore:
 
 1. **Developer Agent** – writes, debugs and executes code
-2. **Browser Agent** – fetches and gathers info from the web
-3. **Multimodal Agent** – ideals with images, videos and more
-4. **Document Agent** – reads, writes and manages files (Markdown, PDF, Word, etc.)
+1. **Browser Agent** – fetches and gathers info from the web
+1. **Multimodal Agent** – ideals with images, videos and more
+1. **Document Agent** – reads, writes and manages files (Markdown, PDF, Word, etc.)
 
 ![Pre-build Agents](/docs/images/quickstart_prebuiltagents.gif)
 
@@ -124,7 +124,7 @@ Click on an agent icon to open its **Workspace**:
 
 <aside>
 
-** 📌 Tip: Managing Your View**
+\*\* 📌 Tip: Managing Your View\*\*
 
 You can customize your monitoring experience easily. Workspace toolbar includes scroll, full-screen, and layout toggles (single/dual pane).
 
@@ -153,12 +153,6 @@ Click the gear icon in the top-right corner to open Settings. Here’s a brief o
 
 ![General](/docs/images/quickstart_settings_general.png)
 
-### **Privacy**
-
-Your privacy is important to us! Because Eigent agents operate on your desktop, they may need permissions to take screenshots or access local files to complete tasks. You can enable and manage all these permissions here.
-
-![Privacy](/docs/images/quickstart_settings_privacy.png)
-
 ### **Models**
 
 <aside>
@@ -173,7 +167,7 @@ Eigent can run in two modes. Your choice here affects how you are billed and wha
 - **Cloud Version:** We provide pre-configured, state-of-the-art models, including GPT-4.1, GPT-4.1 mini and Gemini 2.5 Pro. Using these models is the easiest way to get started and will be billed to your account based on usage (credits).
 - **Self-hosted Version:** You can connect your own models.
   - **Cloud Models:** Connect your personal accounts from providers like OpenAI, Anthropic, Qwen, Deepseek and Azure by entering your own API key.
-  - **Local Models:** For advanced users, you can run models locally using Ollama, vLLM, or SGLang.
+  - **Local Models:** For advanced users, you can run models locally using Ollama, vLLM, SGLang, LM Studio, or LLaMA.cpp server.
 
 ### **MCP Servers**
 
@@ -205,7 +199,7 @@ Congratulations on running your first task! Here are a few recommended reads to 
   <Card
     title="Models"
     icon="server"
-    href="/core/models">
+    href="/core/models/byok">
     Discover how to connect your own local or cloud-based AI models.
   </Card>
 </CardGroup>

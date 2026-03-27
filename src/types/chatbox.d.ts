@@ -12,6 +12,13 @@
 // limitations under the License.
 // ========= Copyright 2025-2026 @ Eigent.ai All Rights Reserved. =========
 
+import type {
+  AgentMessageStatusType,
+  AgentStatusType,
+  AgentStepType,
+  TaskStatusType,
+} from './constants';
+
 // Global type definitions for ChatBox component
 
 declare global {
@@ -40,7 +47,7 @@ declare global {
     report?: string | undefined;
     id: string;
     content: string;
-    status?: string;
+    status?: TaskStatusType;
     agent?: Agent;
     terminal?: string[];
     fileList?: FileInfo[];
@@ -60,7 +67,7 @@ declare global {
     filePath: string;
   }
 
-  type AgentStatus = 'pending' | 'running' | 'completed' | 'failed';
+  type AgentStatus = AgentStatusType;
 
   interface ActiveWebView {
     id: string;
@@ -92,7 +99,7 @@ declare global {
     id: string;
     role: 'user' | 'agent';
     content: string;
-    step?: string;
+    step?: AgentStepType;
     agent_id?: string;
     isConfirm?: boolean;
     taskType?: 1 | 2 | 3;
@@ -110,7 +117,7 @@ declare global {
   }
 
   interface AgentMessage {
-    step: string;
+    step: AgentStepType;
     data: {
       project_id?: string;
       failure_count?: number;
@@ -140,7 +147,7 @@ declare global {
       max_length?: number;
       text?: string;
     };
-    status?: 'running' | 'filled' | 'completed';
+    status?: AgentMessageStatusType;
   }
 
   type AgentNameType =

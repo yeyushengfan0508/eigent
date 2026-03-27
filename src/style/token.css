@@ -176,7 +176,7 @@
 
     /* Component Tokens */
     /* Input Component */
-    --input-bg-input: var(--surface-secondary);
+    --input-bg-input: var(--surface-tertiary);
     --input-bg-spliting: var(--surface-information);
     --input-bg-confirm: var(--surface-success);
     --input-bg-default: var(--surface-primary);
@@ -184,7 +184,7 @@
     --input-border-default: var(--border-secondary);
     --input-border-hover: var(--border-action-hover);
     --input-border-focus: var(--border-information);
-    --input-text-default: var(--text-primary);
+    --input-text-default: var(--text-secondary);
     --input-text-focus: var(--text-primary);
     --input-label-default: var(--text-secondary);
     --input-border-success: var(--border-success);
@@ -199,7 +199,7 @@
     /* Menu Tabs Component */
     --menutabs-fill-default: var(--fill-fill-transparent);
     --menutabs-fill-hover: var(--fill-fill-tertiary-hover);
-    --menutabs-fill-active: var(--fill-fill-tertiary);
+    --menutabs-fill-active: var(--fill-default);
     --menutabs-fill-disabled: var(--fill-fill-tertiary-disabled);
     --menutabs-border-disabled: var(--fill-fill-tertiary-disabled);
     --menutabs-border-active: var(--fill-fill-tertiary-active);
@@ -213,7 +213,7 @@
     --menutabs-icon-default: var(--icon-disabled);
     --menutabs-icon-disabled: var(--icon-disabled);
     --menutabs-icon-active: var(--icon-action);
-    --menutabs-bg-default: var(--fill-default);
+    --menutabs-bg-default: var(--surface-primary);
 
     /* Progress Component */
     --progress-fill-default: var(--fill-fill-success);
@@ -309,7 +309,7 @@
     --badge-splitting-surface: var(--surface-information);
 
     /* Switch Component */
-    --switch-off-fill-track-fill: var(--fill-fill-primary);
+    --switch-off-fill-track-fill: var(--fill-fill-secondary);
     --switch-off-fill-track-border: var(--border-primary);
     --switch-off-fill-thumb-border: var(--border-primary);
     --switch-off-fill-thumb-fill: var(--fill-default);
@@ -366,7 +366,7 @@
     --tag-foreground-cuation: var(--text-cuation);
     --tag-foreground-default: var(--text-body);
     --tag-fill-default: var(--surface-tertiary);
-    --tag-fill-default-foreground: var(--surface-secondary);
+    --tag-fill-default-foreground: var(--surface-information);
 
     /* Project Component */
     --project-surface: var(--surface-tertiary);
@@ -393,10 +393,10 @@
     --task-border-focus-success: var(--border-success);
     --task-border-focus-warning: var(--border-warning);
     --task-border-focus-error: var(--border-cuation);
-    --task-fill-running: var(--surface-secondary);
+    --task-fill-running: var(--surface-primary);
 
     /* Log Component */
-    --log-default: #F5F5F5;
+    --log-default: #f5f5f5;
 
     /* Worker Component */
     --worker-surface-primary: var(--surface-tertiary);
@@ -438,26 +438,20 @@
 
     /* Perfect Shadow */
     --shadow-perfect:
-      0 8px 20px -2px #1d21291a,
-      0 32px 48px -12px #1d21291f,
-      0 96px 120px -12px #414a5c0f,
-      0 108px 72px -16px #414a5c14,
-      0 32px 64px -8px #7199bd1f,
-      0 8px 10px 0 #7199bd1f;
+      0 8px 20px -2px #1d21291a, 0 32px 48px -12px #1d21291f,
+      0 96px 120px -12px #414a5c0f, 0 108px 72px -16px #414a5c14,
+      0 32px 64px -8px #7199bd1f, 0 8px 10px 0 #7199bd1f;
 
     /* Button Shadow */
     --shadow-button:
-      inset 0 1px 0 0 #ffffff54,
-      0 3px 4px -1px #00000040,
-      0 0 0 1px #d4d4d440;
-
+      inset 0 1px 0 0 #ffffff54, 0 3px 4px -1px #00000040, 0 0 0 1px #d4d4d440;
   }
 
   .root,
-  [data-theme="transparent"] {
+  [data-theme='transparent'] {
     --text-heading: var(--colors-primary-10);
     --text-body: var(--colors-primary-default);
-    --text-label: var(--colors-primary-7);
+    --text-label: var(--colors-primary-6);
     --text-action: var(--colors-primary-default);
     --text-action-hover: var(--colors-primary-10);
     --text-disabled: var(--colors-primary-3);
@@ -503,7 +497,7 @@
     --border-success: var(--colors-green-default);
     --border-warning: var(--colors-yellow-default);
     --border-cuation: var(--colors-red-default);
-    --border-focus: var(--colors-primary-5);
+    --border-focus: var(--colors-primary-4);
     --border-action: var(--colors-primary-3);
     --border-action-hover: var(--colors-primary-4);
     --border-disabled: var(--colors-primary-2);
@@ -542,11 +536,11 @@
     --fill-fill-primary-disabled: var(--colors-primary-5);
     --fill-fill-tertiary: var(--colors-primary-1);
     --fill-fill-transparent: var(--colors-white-0);
-    --fill-fill-transparent-hover: var(--colors-primary-1);
+    --fill-fill-transparent-hover: var(--colors-white-50);
     --fill-fill-tertiary-hover: var(--colors-primary-2);
     --fill-fill-tertiary-active: var(--colors-primary-3);
     --fill-fill-tertiary-disabled: var(--colors-off-white-50);
-    --fill-fill-transparent-active: var(--colors-primary-2);
+    --fill-fill-transparent-active: var(--colors-white-80);
     --fill-fill-transparent-disabled: var(--colors-white-0);
     --fill-fill-secondary-disabled: var(--colors-primary-4);
     --fill-fill-secondary-active: var(--colors-primary-7);
@@ -580,10 +574,10 @@
   }
 
   .root,
-  [data-theme="light"] {
+  [data-theme='light'] {
     --text-heading: var(--colors-primary-10);
     --text-body: var(--colors-primary-default);
-    --text-label: var(--colors-primary-7);
+    --text-label: var(--colors-primary-6);
     --text-action: var(--colors-primary-default);
     --text-action-hover: var(--colors-primary-10);
     --text-disabled: var(--colors-primary-3);
@@ -621,7 +615,7 @@
     --border-success: var(--colors-green-default);
     --border-warning: var(--colors-yellow-default);
     --border-cuation: var(--colors-red-default);
-    --border-focus: var(--colors-primary-5);
+    --border-focus: var(--colors-primary-4);
     --border-action: var(--colors-primary-3);
     --border-action-hover: var(--colors-primary-4);
     --border-disabled: var(--colors-primary-2);
@@ -660,11 +654,11 @@
     --fill-fill-primary-disabled: var(--colors-primary-5);
     --fill-fill-tertiary: var(--colors-primary-1);
     --fill-fill-transparent: var(--colors-white-0);
-    --fill-fill-transparent-hover: var(--colors-primary-1);
+    --fill-fill-transparent-hover: var(--colors-white-80);
     --fill-fill-tertiary-hover: var(--colors-primary-2);
     --fill-fill-tertiary-active: var(--colors-primary-3);
     --fill-fill-tertiary-disabled: var(--colors-primary-2);
-    --fill-fill-transparent-active: var(--colors-primary-2);
+    --fill-fill-transparent-active: var(--colors-white-100);
     --fill-fill-transparent-disabled: var(--colors-white-0);
     --fill-fill-secondary-disabled: var(--colors-primary-4);
     --fill-fill-secondary-active: var(--colors-primary-7);
@@ -695,10 +689,11 @@
     --bg-dark-tertiary: var(--colors-off-black-10);
     --bg-dark-default: var(--colors-off-black-100);
     --bg-page-default: var(--colors-off-white-100);
+    --background: var(--bg-page);
   }
 
   .root,
-  [data-theme="dark"] {
+  [data-theme='dark'] {
     --text-heading: #e8ecff;
     --text-body: #f4f6ff;
     --text-label: #b0bdd8;
@@ -747,7 +742,7 @@
     --border-success: rgba(74, 222, 128, 0.6);
     --border-cuation: rgba(248, 113, 113, 0.6);
     --border-warning: rgba(250, 204, 21, 0.6);
-    --border-focus: rgba(226, 232, 240, 0.4);
+    --border-focus: rgba(226, 232, 240, 0.2);
     --border-action: rgba(148, 163, 184, 0.24);
     --border-action-hover: rgba(226, 232, 240, 0.38);
     --border-disabled: rgba(148, 163, 184, 0.08);
@@ -821,6 +816,7 @@
     --bg-dark-tertiary: #2c3950;
     --bg-dark-default: #0d1424;
     --bg-page-default: #0d1424;
+    --background: var(--bg-page);
     --task-fill-running: #1f2937;
     --log-default: #1f2937;
     --code-surface: #27272a;
@@ -836,5 +832,4 @@
     --border-subtle: var(--colors-primary-7);
     --border-subtle-strong: var(--colors-primary-6);
   }
-
 }

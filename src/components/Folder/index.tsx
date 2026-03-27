@@ -14,8 +14,13 @@
 
 import { Button } from '@/components/ui/button';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   CodeXml,
@@ -23,6 +28,7 @@ import {
   FileText,
   Folder as FolderIcon,
   Search,
+  SquareTerminal,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import FolderComponent from './FolderComponent';
@@ -30,11 +36,77 @@ import FolderComponent from './FolderComponent';
 import { proxyFetchGet } from '@/api/http';
 import { MarkDown } from '@/components/ChatBox/MessageItem/MarkDown';
 import useChatStoreAdapter from '@/hooks/useChatStoreAdapter';
-import { injectFontStyles } from '@/lib/htmlFontStyles';
+import {
+  deferInlineScriptsUntilLoad,
+  injectFontStyles,
+} from '@/lib/htmlFontStyles';
 import { containsDangerousContent } from '@/lib/htmlSanitization';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import { ZoomControls } from './ZoomControls';
+
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'];
+const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma'];
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'flv', 'wmv'];
+
+type FileTypeTarget = {
+  name?: string;
+  path?: string;
+  type?: string;
+};
+const loggedFileTypeWarnings = new Set<string>();
+
+function getExt(value?: string) {
+  if (!value) return '';
+  const normalized = value.split(/[?#]/)[0];
+  const lastSegment = normalized.split('/').pop() || normalized;
+  if (!lastSegment.includes('.')) return '';
+  return lastSegment.split('.').pop()?.toLowerCase() || '';
+}
+
+function getFileType(file: FileTypeTarget) {
+  const extFromNameOrPath = getExt(file.name) || getExt(file.path);
+  const normalizedType = (file.type || '').replace(/^\./, '').toLowerCase();
+  const fileId = file.path || file.name || 'unknown-file';
+
+  if (!extFromNameOrPath && normalizedType) {
+    const key = `missing-ext|${fileId}|${normalizedType}`;
+    if (!loggedFileTypeWarnings.has(key)) {
+      loggedFileTypeWarnings.add(key);
+      console.warn(
+        `[Folder getFileType] extension missing in name/path, file.type fallback disabled: ${fileId} (type=${normalizedType})`
+      );
+    }
+  }
+
+  if (
+    extFromNameOrPath &&
+    normalizedType &&
+    normalizedType !== 'folder' &&
+    extFromNameOrPath !== normalizedType
+  ) {
+    const key = `mismatch|${fileId}|${extFromNameOrPath}|${normalizedType}`;
+    if (!loggedFileTypeWarnings.has(key)) {
+      loggedFileTypeWarnings.add(key);
+      console.warn(
+        `[Folder getFileType] extension/type mismatch for ${fileId}: inferred=${extFromNameOrPath}, type=${normalizedType}`
+      );
+    }
+  }
+
+  return extFromNameOrPath;
+}
+
+function isImageFile(file: FileTypeTarget) {
+  return IMAGE_EXTENSIONS.includes(getFileType(file));
+}
+function isAudioFile(file: FileTypeTarget) {
+  return AUDIO_EXTENSIONS.includes(getFileType(file));
+}
+function isVideoFile(file: FileTypeTarget) {
+  return VIDEO_EXTENSIONS.includes(getFileType(file));
+}
 
 // Type definitions
 interface FileTreeNode {
@@ -69,7 +141,7 @@ interface FileTreeProps {
   isShowSourceCode: boolean;
 }
 
-const FileTree: React.FC<FileTreeProps> = ({
+export const FileTree: React.FC<FileTreeProps> = ({
   node,
   level = 0,
   selectedFile,
@@ -103,29 +175,33 @@ const FileTree: React.FC<FileTreeProps> = ({
                   onSelectFile(fileInfo);
                 }
               }}
-              className={`text-primary flex w-full items-center justify-start rounded-xl bg-fill-fill-transparent p-2 text-left text-sm backdrop-blur-lg transition-colors hover:bg-fill-fill-transparent-active ${
+              className={`text-primary flex w-full items-center justify-start gap-2 rounded-xl bg-fill-fill-transparent p-2 text-left text-sm backdrop-blur-lg transition-colors hover:bg-fill-fill-transparent-active ${
                 selectedFile?.path === child.path
                   ? 'bg-fill-fill-transparent-active'
                   : ''
               }`}
             >
-              {child.isFolder && (
-                <span className="flex h-4 w-4 items-center justify-center">
+              {child.isFolder ? (
+                <span className="flex h-4 w-4 flex-shrink-0 items-center justify-center">
                   {isExpanded ? (
                     <ChevronDown className="h-4 w-4" />
                   ) : (
                     <ChevronRight className="h-4 w-4" />
                   )}
                 </span>
+              ) : (
+                <span
+                  className="flex h-4 w-4 flex-shrink-0 items-center justify-center"
+                  aria-hidden
+                />
               )}
-              {!child.isFolder && <span className="w-4" />}
 
               {child.isFolder ? (
-                <FolderIcon className="mr-2 h-5 w-5 flex-shrink-0 text-yellow-600" />
+                <FolderIcon className="h-5 w-5 flex-shrink-0 text-yellow-600" />
               ) : child.icon ? (
-                <child.icon className="mr-2 h-5 w-5 flex-shrink-0" />
+                <child.icon className="h-5 w-5 flex-shrink-0" />
               ) : (
-                <FileText className="mr-2 h-5 w-5 flex-shrink-0" />
+                <FileText className="h-5 w-5 flex-shrink-0" />
               )}
 
               <span
@@ -235,6 +311,14 @@ export default function Folder({ data: _data }: { data?: Agent }) {
       return;
     }
 
+    // For audio/video files, skip open-file — loaders handle reading themselves
+    if (isAudioFile(file) || isVideoFile(file)) {
+      setSelectedFile({ ...file });
+      chatStore.setSelectedFile(chatStore.activeTaskId as string, file);
+      setLoading(false);
+      return;
+    }
+
     // all other files call open-file interface, the backend handles download and parsing
     window.ipcRenderer
       .invoke('open-file', file.type, file.path, isShowSourceCode)
@@ -320,9 +404,13 @@ export default function Folder({ data: _data }: { data?: Agent }) {
     });
   };
 
-  // Reset hasFetchedRemote when activeTaskId changes
+  // Reset state when activeTaskId changes (e.g., new project created)
   useEffect(() => {
     hasFetchedRemote.current = false;
+    setSelectedFile(null);
+    setFileTree({ name: 'root', path: '', children: [], isFolder: true });
+    setFileGroups([{ folder: 'Reports', files: [] }]);
+    setExpandedFolders(new Set());
   }, [chatStore?.activeTaskId]);
 
   useEffect(() => {
@@ -343,7 +431,7 @@ export default function Folder({ data: _data }: { data?: Agent }) {
       } else {
         if (!hasFetchedRemote.current) {
           //TODO(file): rename endpoint to use project_id
-          res = await proxyFetchGet('/api/chat/files', {
+          res = await proxyFetchGet('/api/v1/chat/files', {
             task_id: projectStore.activeProjectId as string,
           });
           hasFetchedRemote.current = true;
@@ -388,6 +476,9 @@ export default function Folder({ data: _data }: { data?: Agent }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatStore?.tasks[chatStore?.activeTaskId as string]?.taskAssigning]);
 
+  const selectedFilePath =
+    chatStore?.tasks[chatStore?.activeTaskId as string]?.selectedFile?.path;
+
   useEffect(() => {
     if (!chatStore) return;
     const chatStoreSelectedFile =
@@ -399,21 +490,37 @@ export default function Folder({ data: _data }: { data?: Agent }) {
       if (file && selectedFile?.path !== chatStoreSelectedFile?.path) {
         selectedFileChange(file as FileInfo, isShowSourceCode);
       }
+    } else if (!chatStoreSelectedFile && selectedFile) {
+      setSelectedFile(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    chatStore?.tasks[chatStore?.activeTaskId as string]?.selectedFile?.path,
-    fileGroups,
-    isShowSourceCode,
-    chatStore?.activeTaskId,
-  ]);
+  }, [selectedFilePath, fileGroups, isShowSourceCode, chatStore?.activeTaskId]);
 
   if (!chatStore) {
     return <div>Loading...</div>;
   }
 
   const handleBack = () => {
-    chatStore.setActiveWorkSpace(chatStore.activeTaskId as string, 'workflow');
+    chatStore.setActiveWorkspace(chatStore.activeTaskId as string, 'workflow');
+  };
+
+  const handleOpenInIDE = async (ide: 'vscode' | 'cursor' | 'system') => {
+    try {
+      if (!authStore.email || !projectStore.activeProjectId) return;
+      const folderPath = await window.electronAPI.getProjectFolderPath(
+        authStore.email,
+        projectStore.activeProjectId
+      );
+      const result = await window.electronAPI.openInIDE(folderPath, ide);
+      if (!result.success) {
+        toast.error(result.error || t('chat.failed-to-open-folder'));
+      } else {
+        authStore.setPreferredIDE(ide);
+      }
+    } catch (error) {
+      console.error('Failed to open in IDE:', error);
+      toast.error(t('chat.failed-to-open-folder'));
+    }
   };
 
   return (
@@ -433,34 +540,66 @@ export default function Folder({ data: _data }: { data?: Agent }) {
           <div className="flex items-center justify-between">
             {!isCollapsed && (
               <div className="flex items-center gap-2">
-                <Button
-                  onClick={handleBack}
-                  size="sm"
-                  variant="ghost"
-                  className={`flex items-center gap-2`}
-                >
-                  <ChevronLeft />
-                </Button>
-                <span className="text-primary whitespace-nowrap text-xl font-bold">
+                <span className="text-body-base text-primary whitespace-nowrap font-bold">
                   {t('chat.agent-folder')}
                 </span>
               </div>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className={`${
-                isCollapsed ? 'w-full' : ''
-              } flex items-center justify-center`}
-              title={isCollapsed ? t('chat.open') : t('chat.close')}
-            >
-              <ChevronsLeft
-                className={`h-6 w-6 text-icon-secondary ${
-                  isCollapsed ? 'rotate-180' : ''
-                } transition-transform ease-in-out`}
-              />
-            </Button>
+            <div className="flex items-center">
+              {!isCollapsed &&
+                window.electronAPI?.getProjectFolderPath &&
+                window.electronAPI?.openInIDE && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title={t('chat.open-in-ide')}
+                      >
+                        <SquareTerminal className="h-5 w-5 text-icon-secondary" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="z-50 border-dropdown-border bg-dropdown-bg"
+                    >
+                      <DropdownMenuItem
+                        onClick={() => handleOpenInIDE('vscode')}
+                        className="cursor-pointer bg-dropdown-item-bg-default hover:bg-dropdown-item-bg-hover"
+                      >
+                        {t('chat.open-in-vscode')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleOpenInIDE('cursor')}
+                        className="cursor-pointer bg-dropdown-item-bg-default hover:bg-dropdown-item-bg-hover"
+                      >
+                        {t('chat.open-in-cursor')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleOpenInIDE('system')}
+                        className="cursor-pointer bg-dropdown-item-bg-default hover:bg-dropdown-item-bg-hover"
+                      >
+                        {t('chat.open-in-file-manager')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className={`${
+                  isCollapsed ? 'w-full' : ''
+                } flex items-center justify-center`}
+                title={isCollapsed ? t('chat.open') : t('chat.close')}
+              >
+                <ChevronsLeft
+                  className={`h-6 w-6 text-icon-secondary ${
+                    isCollapsed ? 'rotate-180' : ''
+                  } transition-transform ease-in-out`}
+                />
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -567,10 +706,10 @@ export default function Folder({ data: _data }: { data?: Agent }) {
 
         {/* content */}
         <div
-          className={`min-h-0 flex-1 ${selectedFile?.type === 'html' && !isShowSourceCode ? 'overflow-hidden' : 'scrollbar overflow-y-auto'}`}
+          className={`flex min-h-0 flex-1 flex-col ${selectedFile?.type === 'html' && !isShowSourceCode ? 'overflow-hidden' : 'scrollbar overflow-y-auto'}`}
         >
           <div
-            className={`h-full ${selectedFile?.type === 'html' && !isShowSourceCode ? '' : 'p-6'}`}
+            className={`flex min-h-full flex-col ${selectedFile?.type === 'html' && !isShowSourceCode ? '' : 'p-6'} file-viewer-content`}
           >
             {selectedFile ? (
               !loading ? (
@@ -614,20 +753,20 @@ export default function Folder({ data: _data }: { data?: Agent }) {
                       </p>
                     </div>
                   </div>
-                ) : [
-                    'png',
-                    'jpg',
-                    'jpeg',
-                    'gif',
-                    'bmp',
-                    'webp',
-                    'svg',
-                  ].includes(selectedFile.type.toLowerCase()) ? (
+                ) : isAudioFile(selectedFile) ? (
+                  <div className="flex h-full items-center justify-center">
+                    <AudioLoader selectedFile={selectedFile} />
+                  </div>
+                ) : isVideoFile(selectedFile) ? (
+                  <div className="flex h-full items-center justify-center">
+                    <VideoLoader selectedFile={selectedFile} />
+                  </div>
+                ) : isImageFile(selectedFile) ? (
                   <div className="flex h-full items-center justify-center">
                     <ImageLoader selectedFile={selectedFile} />
                   </div>
                 ) : (
-                  <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-sm text-text-primary">
+                  <pre className="overflow-auto whitespace-pre-wrap break-words font-mono text-sm text-text-primary">
                     {selectedFile.content}
                   </pre>
                 )
@@ -642,7 +781,7 @@ export default function Folder({ data: _data }: { data?: Agent }) {
                 </div>
               )
             ) : (
-              <div className="flex h-full items-center justify-center text-text-secondary">
+              <div className="flex flex-1 items-center justify-center text-text-secondary">
                 <div className="text-center">
                   <FileText className="mx-auto mb-4 h-12 w-12 text-text-tertiary" />
                   <p className="text-sm">
@@ -658,18 +797,57 @@ export default function Folder({ data: _data }: { data?: Agent }) {
   );
 }
 
+function toFileUrl(filePath: string): string {
+  if (
+    filePath.startsWith('file://') ||
+    filePath.startsWith('localfile://') ||
+    filePath.startsWith('http://') ||
+    filePath.startsWith('https://') ||
+    filePath.startsWith('blob:') ||
+    filePath.startsWith('data:')
+  ) {
+    return filePath;
+  }
+
+  const normalizedPath = filePath.replace(/\\/g, '/');
+
+  // Windows UNC path: //server/share/path/to/file
+  if (normalizedPath.startsWith('//')) {
+    const withoutLeadingSlashes = normalizedPath.replace(/^\/+/, '');
+    const [host, ...pathSegments] = withoutLeadingSlashes.split('/');
+    const encodedPath = pathSegments.map(encodeURIComponent).join('/');
+    return encodedPath ? `file://${host}/${encodedPath}` : `file://${host}/`;
+  }
+
+  const hasWindowsDrive = /^[A-Za-z]:\//.test(normalizedPath);
+  if (hasWindowsDrive) {
+    const [drive, ...pathSegments] = normalizedPath.split('/');
+    const encodedPath = pathSegments.map(encodeURIComponent).join('/');
+    return encodedPath
+      ? `file:///${drive}/${encodedPath}`
+      : `file:///${drive}/`;
+  }
+
+  const encodedPath = normalizedPath
+    .split('/')
+    .map((segment, index) =>
+      index === 0 && segment === '' ? '' : encodeURIComponent(segment)
+    )
+    .join('/');
+  return `file://${encodedPath}`;
+}
+
 function ImageLoader({ selectedFile }: { selectedFile: FileInfo }) {
   const [src, setSrc] = useState('');
 
   useEffect(() => {
-    const filePath = selectedFile.isRemote
-      ? (selectedFile.content as string)
-      : selectedFile.path;
-
-    window.electronAPI
-      .readFileAsDataUrl(filePath)
-      .then(setSrc)
-      .catch((err: any) => console.error('Image load error:', err));
+    setSrc('');
+    if (selectedFile.isRemote) {
+      setSrc((selectedFile.content as string) || selectedFile.path);
+      return;
+    }
+    // Use file:// source so Chromium can stream/seek large media files.
+    setSrc(toFileUrl(selectedFile.path));
   }, [selectedFile]);
 
   return (
@@ -677,7 +855,63 @@ function ImageLoader({ selectedFile }: { selectedFile: FileInfo }) {
       src={src}
       alt={selectedFile.name}
       className="max-h-full max-w-full object-contain"
+      onError={(err) => console.error('Image load error:', err)}
     />
+  );
+}
+
+function AudioLoader({ selectedFile }: { selectedFile: FileInfo }) {
+  const [src, setSrc] = useState('');
+
+  useEffect(() => {
+    setSrc('');
+    if (selectedFile.isRemote) {
+      setSrc(selectedFile.content || selectedFile.path);
+      return;
+    }
+    // Use file:// source so Chromium can stream/seek large media files.
+    setSrc(toFileUrl(selectedFile.path));
+  }, [selectedFile]);
+
+  return (
+    <div className="flex w-full flex-col items-center gap-4 px-8">
+      <p className="text-sm font-medium text-text-primary">
+        {selectedFile.name}
+      </p>
+      <audio
+        controls
+        src={src}
+        className="w-full"
+        onError={(err) => console.error('Audio load error:', err)}
+      >
+        Your browser does not support audio playback.
+      </audio>
+    </div>
+  );
+}
+
+function VideoLoader({ selectedFile }: { selectedFile: FileInfo }) {
+  const [src, setSrc] = useState('');
+
+  useEffect(() => {
+    setSrc('');
+    if (selectedFile.isRemote) {
+      setSrc(selectedFile.content || selectedFile.path);
+      return;
+    }
+    // Use file:// source so Chromium can stream/seek large media files.
+    setSrc(toFileUrl(selectedFile.path));
+  }, [selectedFile]);
+
+  return (
+    <video
+      controls
+      src={src}
+      className="max-h-full max-w-full object-contain"
+      onError={(err) => console.error('Video load error:', err)}
+    >
+      Your browser does not support video playback.
+    </video>
   );
 }
 
@@ -952,8 +1186,12 @@ function HtmlRenderer({
         return;
       }
 
+      // Defer inline scripts until load when document has external scripts (e.g. Chart.js),
+      const htmlWithDeferredScripts =
+        deferInlineScriptsUntilLoad(processedHtmlContent);
+
       // Set the processed HTML with font styles - iframe sandbox provides security
-      setProcessedHtml(injectFontStyles(processedHtmlContent));
+      setProcessedHtml(injectFontStyles(htmlWithDeferredScripts));
     };
 
     processHtml();
@@ -998,6 +1236,7 @@ function HtmlRenderer({
             height: `${10000 / zoom}%`,
           }}
         >
+          {/*Security is maintained via CSP allowlist in index.html which restricts script sources. */}
           <iframe
             ref={iframeRef}
             srcDoc={processedHtml}

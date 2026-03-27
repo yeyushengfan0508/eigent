@@ -20,7 +20,6 @@ import {
   proxyFetchPost,
   proxyFetchPut,
 } from '@/api/http';
-import { capitalizeFirstLetter } from '@/lib';
 import { useAuthStore } from '@/store/authStore';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -55,7 +54,7 @@ export function useIntegrationManagement(items: IntegrationItem[]) {
   // Fetch installed configs
   const fetchInstalled = useCallback(async (ignore: boolean = false) => {
     try {
-      const configsRes = await proxyFetchGet('/api/configs');
+      const configsRes = await proxyFetchGet('/api/v1/configs');
       if (!ignore) {
         setConfigs(Array.isArray(configsRes) ? configsRes : []);
       }
@@ -123,7 +122,7 @@ export function useIntegrationManagement(items: IntegrationItem[]) {
       // Fetch latest configs to avoid stale state when deciding POST/PUT
       let latestConfigs: any[] = Array.isArray(configs) ? configs : [];
       try {
-        const fresh = await proxyFetchGet('/api/configs');
+        const fresh = await proxyFetchGet('/api/v1/configs');
         if (Array.isArray(fresh)) latestConfigs = fresh;
       } catch {}
 
@@ -133,21 +132,24 @@ export function useIntegrationManagement(items: IntegrationItem[]) {
       );
 
       if (existingConfig) {
-        await proxyFetchPut(`/api/configs/${existingConfig.id}`, configPayload);
+        await proxyFetchPut(
+          `/api/v1/configs/${existingConfig.id}`,
+          configPayload
+        );
       } else {
-        const res = await proxyFetchPost('/api/configs', configPayload);
+        const res = await proxyFetchPost('/api/v1/configs', configPayload);
         if (
           res &&
           res.detail &&
           (res.detail as string).toLowerCase().includes('already exists')
         ) {
           try {
-            const again = await proxyFetchGet('/api/configs');
+            const again = await proxyFetchGet('/api/v1/configs');
             const found = Array.isArray(again)
               ? again.find((c: any) => c.config_name === envVarKey)
               : null;
             if (found) {
-              await proxyFetchPut(`/api/configs/${found.id}`, configPayload);
+              await proxyFetchPut(`/api/v1/configs/${found.id}`, configPayload);
             }
           } catch {}
         }
@@ -167,20 +169,21 @@ export function useIntegrationManagement(items: IntegrationItem[]) {
       if (!items || items.length === 0) {
         // Items not ready, cache event, wait for items to have value
         pendingOauthEventRef.current = data;
-        console.warn('items is empty, cache oauth event', data);
         return;
       }
       const provider = data.provider.toLowerCase();
+      const hasProviderInItems = items.some(
+        (item) => item.key.toLowerCase() === provider
+      );
+      if (!hasProviderInItems) {
+        return;
+      }
       isLockedRef.current = true;
       try {
         const tokenResult = await proxyFetchPost(
-          `/api/oauth/${provider}/token`,
+          `/api/v1/oauth/${provider}/token`,
           { code: data.code }
         );
-        setInstalled((prev) => ({
-          ...prev,
-          [capitalizeFirstLetter(provider)]: true,
-        }));
         const currentItem = items.find(
           (item) => item.key.toLowerCase() === provider
         );
@@ -193,7 +196,7 @@ export function useIntegrationManagement(items: IntegrationItem[]) {
           ) {
             const envVarKey = currentItem.env_vars[0];
             await saveEnvAndConfig(
-              provider,
+              currentItem.key,
               envVarKey,
               tokenResult.access_token
             );
@@ -281,8 +284,15 @@ export function useIntegrationManagement(items: IntegrationItem[]) {
   // Process cached OAuth event when items are ready
   useEffect(() => {
     if (items && items.length > 0 && pendingOauthEventRef.current) {
-      processOauth(pendingOauthEventRef.current);
-      pendingOauthEventRef.current = null;
+      const pending = pendingOauthEventRef.current;
+      const provider = pending.provider.toLowerCase();
+      const hasProviderInItems = items.some(
+        (item) => item.key.toLowerCase() === provider
+      );
+      if (hasProviderInItems) {
+        processOauth(pending);
+        pendingOauthEventRef.current = null;
+      }
     }
   }, [items, processOauth]);
 
@@ -296,7 +306,7 @@ export function useIntegrationManagement(items: IntegrationItem[]) {
       );
       for (const config of toDelete) {
         try {
-          await proxyFetchDelete(`/api/configs/${config.id}`);
+          await proxyFetchDelete(`/api/v1/configs/${config.id}`);
           // Delete env
           if (
             item.env_vars &&

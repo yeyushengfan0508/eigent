@@ -12,24 +12,27 @@
 // limitations under the License.
 // ========= Copyright 2025-2026 @ Eigent.ai All Rights Reserved. =========
 
-import loginGif from '@/assets/login.gif';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
 import { useStackApp } from '@stackframe/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { Input } from '@/components/ui/input';
 
 import { proxyFetchPost } from '@/api/http';
+import background from '@/assets/background.png';
 import eyeOff from '@/assets/eye-off.svg';
 import eye from '@/assets/eye.svg';
 import github2 from '@/assets/github2.svg';
 import google from '@/assets/google.svg';
+import eigentLogo from '@/assets/logo/eigent_icon.png';
+import WindowControls from '@/components/WindowControls';
 import { hasStackKeys } from '@/lib';
 import { useTranslation } from 'react-i18next';
 
 const HAS_STACK_KEYS = hasStackKeys();
+const IS_LOCAL_MODE = import.meta.env.VITE_USE_LOCAL_PROXY === 'true';
 let lock = false;
 export default function SignUp() {
   // Always call hooks unconditionally - React Hooks must be called in the same order
@@ -38,6 +41,25 @@ export default function SignUp() {
   const { setAuth, initState: _initState } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Local mode: no signup needed, redirect to home
+  useEffect(() => {
+    if (IS_LOCAL_MODE) {
+      navigate('/', { replace: true });
+    }
+  }, [navigate]);
+
+  // Hybrid/app mode without Stack keys: redirect to external signup
+  useEffect(() => {
+    if (!IS_LOCAL_MODE && !HAS_STACK_KEYS) {
+      window.open(
+        'https://www.eigent.ai/signup',
+        '_blank',
+        'noopener,noreferrer'
+      );
+      navigate('/login', { replace: true });
+    }
+  }, [navigate]);
   const [hidePassword, setHidePassword] = useState(true);
   const { t } = useTranslation();
   const [formData, setFormData] = useState({
@@ -52,6 +74,8 @@ export default function SignUp() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [generalError, setGeneralError] = useState('');
+  const titlebarRef = useRef<HTMLDivElement | null>(null);
+  const [platform, setPlatform] = useState<string>('');
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -107,7 +131,7 @@ export default function SignUp() {
     setGeneralError('');
     setIsLoading(true);
     try {
-      const data = await proxyFetchPost('/api/register', {
+      const data = await proxyFetchPost('/api/v1/register', {
         email: formData.email,
         password: formData.password,
         invite_code: formData.invite_code,
@@ -151,7 +175,7 @@ export default function SignUp() {
     async (token: string) => {
       try {
         const data = await proxyFetchPost(
-          '/api/login-by_stack?token=' + token,
+          '/api/v1/login-by_stack?token=' + token,
           {
             token: token,
             invite_code: localStorage.getItem('invite_code') || '',
@@ -200,14 +224,14 @@ export default function SignUp() {
       console.log(
         'import.meta.env.PROD',
         import.meta.env.PROD
-          ? `${import.meta.env.VITE_BASE_URL}/api/redirect/callback`
-          : `${import.meta.env.VITE_PROXY_URL}/api/redirect/callback`
+          ? `${import.meta.env.VITE_BASE_URL}/api/v1/redirect/callback`
+          : `${import.meta.env.VITE_PROXY_URL}/api/v1/redirect/callback`
       );
       formData.append(
         'redirect_uri',
         import.meta.env.PROD
-          ? `${import.meta.env.VITE_BASE_URL}/api/redirect/callback`
-          : `${import.meta.env.VITE_PROXY_URL}/api/redirect/callback`
+          ? `${import.meta.env.VITE_BASE_URL}/api/v1/redirect/callback`
+          : `${import.meta.env.VITE_PROXY_URL}/api/v1/redirect/callback`
       );
       formData.append('code_verifier', code_verifier || '');
       formData.append('code', code);
@@ -262,134 +286,175 @@ export default function SignUp() {
     };
   }, [handleAuthCode]);
 
+  useEffect(() => {
+    const p = window.electronAPI.getPlatform();
+    setPlatform(p);
+
+    if (platform === 'darwin') {
+      titlebarRef.current?.classList.add('mac');
+    }
+  }, [platform]);
+
   return (
-    <div className={`flex h-full items-center justify-center gap-2 p-2`}>
-      <div className="flex h-[calc(800px-16px)] items-center justify-center rounded-3xl bg-white-100%">
-        <img src={loginGif} className="h-full rounded-3xl object-cover" />
+    <div className="relative flex h-full flex-col overflow-hidden">
+      {/* Titlebar with drag region and window controls */}
+      <div
+        className="absolute left-0 right-0 top-0 z-50 flex !h-9 items-center justify-between py-1 pl-2"
+        id="signup-titlebar"
+        ref={titlebarRef}
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
+        {/* Center drag region */}
+        <div
+          className="flex h-full flex-1 items-center"
+          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+        >
+          <div className="h-10 flex-1" />
+        </div>
+
+        {/* Right window controls */}
+        <div
+          style={
+            {
+              WebkitAppRegion: 'no-drag',
+              pointerEvents: 'auto',
+            } as React.CSSProperties
+          }
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <WindowControls />
+        </div>
       </div>
-      <div className="flex h-full flex-1 flex-col items-center justify-center">
-        <div className="flex w-80 flex-1 flex-col items-center justify-center">
-          <div className="mb-4 flex items-end justify-between self-stretch">
-            <div className="text-heading-lg font-bold text-text-heading">
-              {t('layout.sign-up')}
+
+      {/* Main content - image extends to top, form has padding */}
+      <div
+        className={`flex h-full items-center justify-center gap-2 px-2 pb-2 pt-10`}
+      >
+        <div
+          className="flex h-full min-h-0 w-full flex-col items-center justify-center overflow-hidden rounded-2xl border-solid border-border-tertiary bg-surface-secondary px-2 pb-2"
+          style={{
+            backgroundImage: `url(${background})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div className="relative flex w-80 flex-1 flex-col items-center justify-center pt-8">
+            <img
+              src={eigentLogo}
+              className="absolute left-1/2 top-10 h-16 w-16 -translate-x-1/2"
+            />
+            <div className="mb-4 flex items-end justify-between self-stretch">
+              <div className="text-heading-lg font-bold text-text-heading">
+                {t('layout.sign-up')}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/login')}
+              >
+                {t('layout.login')}
+              </Button>
+            </div>
+            {HAS_STACK_KEYS && (
+              <div className="w-full pt-6">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => handleReloadBtn('google')}
+                  className="mb-4 w-full justify-center rounded-[24px] text-center font-inter text-[15px] font-bold leading-[22px] text-[#F5F5F5] transition-all duration-300 ease-in-out"
+                  disabled={isLoading}
+                >
+                  <img src={google} className="h-5 w-5" />
+                  <span className="ml-2">
+                    {t('layout.continue-with-google-sign-up')}
+                  </span>
+                </Button>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => handleReloadBtn('github')}
+                  className="mb-4 w-full justify-center rounded-[24px] text-center font-inter text-[15px] font-bold leading-[22px] text-[#F5F5F5] transition-all duration-300 ease-in-out"
+                  disabled={isLoading}
+                >
+                  <img src={github2} className="h-5 w-5" />
+                  <span className="ml-2">
+                    {t('layout.continue-with-github-sign-up')}
+                  </span>
+                </Button>
+              </div>
+            )}
+            {HAS_STACK_KEYS && (
+              <div className="mb-6 mt-2 w-full text-center font-inter text-[15px] font-medium leading-[22px] text-[#222]">
+                {t('layout.or')}
+              </div>
+            )}
+            <div className="flex w-full flex-col gap-4">
+              {generalError && (
+                <p className="mb-4 mt-1 text-label-md text-text-cuation">
+                  {generalError}
+                </p>
+              )}
+              <div className="relative mb-4 flex w-full flex-col gap-4">
+                <Input
+                  id="email"
+                  type="email"
+                  size="default"
+                  title={t('layout.email')}
+                  placeholder={t('layout.enter-your-email')}
+                  required
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  state={errors.email ? 'error' : undefined}
+                  note={errors.email}
+                />
+
+                <Input
+                  id="password"
+                  title={t('layout.password')}
+                  size="default"
+                  type={hidePassword ? 'password' : 'text'}
+                  required
+                  placeholder={t('layout.enter-your-password')}
+                  value={formData.password}
+                  onChange={(e) =>
+                    handleInputChange('password', e.target.value)
+                  }
+                  state={errors.password ? 'error' : undefined}
+                  note={errors.password}
+                  backIcon={<img src={hidePassword ? eye : eyeOff} />}
+                  onBackIconClick={() => setHidePassword(!hidePassword)}
+                />
+
+                <Input
+                  id="invite_code"
+                  title={t('layout.invitation-code-optional')}
+                  size="default"
+                  type="text"
+                  placeholder={t('layout.enter-your-invite-code')}
+                  value={formData.invite_code}
+                  onChange={(e) =>
+                    handleInputChange('invite_code', e.target.value)
+                  }
+                  state={errors.invite_code ? 'error' : undefined}
+                  note={errors.invite_code}
+                />
+              </div>
             </div>
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate('/login')}
+              onClick={handleRegister}
+              size="md"
+              variant="primary"
+              type="submit"
+              className="w-full rounded-full"
+              disabled={isLoading}
             >
-              {t('layout.login')}
+              <span className="flex-1">
+                {isLoading ? t('layout.signing-up') : t('layout.sign-up')}
+              </span>
             </Button>
           </div>
-          {HAS_STACK_KEYS && (
-            <div className="w-full pt-6">
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={() => handleReloadBtn('google')}
-                className="mb-4 w-full justify-center rounded-[24px] text-center font-inter text-[15px] font-bold leading-[22px] text-[#F5F5F5] transition-all duration-300 ease-in-out"
-                disabled={isLoading}
-              >
-                <img src={google} className="h-5 w-5" />
-                <span className="ml-2">
-                  {t('layout.continue-with-google-sign-up')}
-                </span>
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={() => handleReloadBtn('github')}
-                className="mb-4 w-full justify-center rounded-[24px] text-center font-inter text-[15px] font-bold leading-[22px] text-[#F5F5F5] transition-all duration-300 ease-in-out"
-                disabled={isLoading}
-              >
-                <img src={github2} className="h-5 w-5" />
-                <span className="ml-2">
-                  {t('layout.continue-with-github-sign-up')}
-                </span>
-              </Button>
-            </div>
-          )}
-          {HAS_STACK_KEYS && (
-            <div className="mb-6 mt-2 w-full text-center font-inter text-[15px] font-medium leading-[22px] text-[#222]">
-              {t('layout.or')}
-            </div>
-          )}
-          <div className="flex w-full flex-col gap-4">
-            {generalError && (
-              <p className="mb-4 mt-1 text-label-md text-text-cuation">
-                {generalError}
-              </p>
-            )}
-            <div className="relative mb-4 flex w-full flex-col gap-4">
-              <Input
-                id="email"
-                type="email"
-                size="default"
-                title={t('layout.email')}
-                placeholder={t('layout.enter-your-email')}
-                required
-                value={formData.email}
-                onChange={(e) => handleInputChange('email', e.target.value)}
-                state={errors.email ? 'error' : undefined}
-                note={errors.email}
-              />
-
-              <Input
-                id="password"
-                title={t('layout.password')}
-                size="default"
-                type={hidePassword ? 'password' : 'text'}
-                required
-                placeholder={t('layout.enter-your-password')}
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                state={errors.password ? 'error' : undefined}
-                note={errors.password}
-                backIcon={<img src={hidePassword ? eye : eyeOff} />}
-                onBackIconClick={() => setHidePassword(!hidePassword)}
-              />
-
-              <Input
-                id="invite_code"
-                title={t('layout.invitation-code-optional')}
-                size="default"
-                type="text"
-                placeholder={t('layout.enter-your-invite-code')}
-                value={formData.invite_code}
-                onChange={(e) =>
-                  handleInputChange('invite_code', e.target.value)
-                }
-                state={errors.invite_code ? 'error' : undefined}
-                note={errors.invite_code}
-              />
-            </div>
-          </div>
-          <Button
-            onClick={handleRegister}
-            size="md"
-            variant="primary"
-            type="submit"
-            className="w-full rounded-full"
-            disabled={isLoading}
-          >
-            <span className="flex-1">
-              {isLoading ? t('layout.signing-up') : t('layout.sign-up')}
-            </span>
-          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={() =>
-            window.open(
-              'https://www.eigent.ai/privacy-policy',
-              '_blank',
-              'noopener,noreferrer'
-            )
-          }
-        >
-          {t('layout.privacy-policy')}
-        </Button>
       </div>
     </div>
   );

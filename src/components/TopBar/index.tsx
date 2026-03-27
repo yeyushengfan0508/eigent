@@ -18,17 +18,19 @@ import {
   proxyFetchDelete,
   proxyFetchGet,
 } from '@/api/http';
+import defaultFolderIcon from '@/assets/Folder.svg';
 import giftWhiteIcon from '@/assets/gift-white.svg';
 import giftIcon from '@/assets/gift.svg';
-import folderIconBlack from '@/assets/logo/icon_black.svg';
-import folderIconWhite from '@/assets/logo/icon_white.svg';
 import EndNoticeDialog from '@/components/Dialog/EndNotice';
 import { Button } from '@/components/ui/button';
 import { TooltipSimple } from '@/components/ui/tooltip';
 import useChatStoreAdapter from '@/hooks/useChatStoreAdapter';
 import { share } from '@/lib/share';
 import { useAuthStore } from '@/store/authStore';
+import { useInstallationUI } from '@/store/installationStore';
+import { usePageTabStore } from '@/store/pageTabStore';
 import { useSidebarStore } from '@/store/sidebarStore';
+import { ChatTaskStatus } from '@/types/constants';
 import {
   ChevronDown,
   ChevronLeft,
@@ -56,15 +58,18 @@ function HeaderWin() {
   //Get Chatstore for the active project's task
   const { chatStore, projectStore } = useChatStoreAdapter();
   const { toggle } = useSidebarStore();
+  const { chatPanelPosition, setChatPanelPosition } = usePageTabStore();
   const appearance = useAuthStore((state) => state.appearance);
   const [endDialogOpen, setEndDialogOpen] = useState(false);
   const [endProjectLoading, setEndProjectLoading] = useState(false);
+  const { isInstalling, installationState } = useInstallationUI();
+  const _isInstallationActive =
+    isInstalling || installationState === 'waiting-backend';
+
   useEffect(() => {
     const p = window.electronAPI.getPlatform();
     setPlatform(p);
   }, []);
-  const logoSrc = appearance === 'dark' ? folderIconWhite : folderIconBlack;
-
   const exportLog = async () => {
     try {
       const response = await window.electronAPI.exportLog();
@@ -90,22 +95,15 @@ function HeaderWin() {
     navigate('/');
   };
 
+  const summaryTask =
+    chatStore?.tasks[chatStore?.activeTaskId as string]?.summaryTask;
+
   const activeTaskTitle = useMemo(() => {
-    if (
-      chatStore?.activeTaskId &&
-      chatStore.tasks[chatStore.activeTaskId as string]?.summaryTask
-    ) {
-      return chatStore.tasks[
-        chatStore.activeTaskId as string
-      ].summaryTask.split('|')[0];
+    if (chatStore?.activeTaskId && summaryTask) {
+      return summaryTask.split('|')[0];
     }
     return t('layout.new-project');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    chatStore?.activeTaskId,
-    chatStore?.tasks[chatStore?.activeTaskId as string]?.summaryTask,
-    t,
-  ]);
+  }, [chatStore?.activeTaskId, summaryTask, t]);
 
   if (!chatStore) {
     return <div>Loading...</div>;
@@ -113,7 +111,7 @@ function HeaderWin() {
 
   const getReferFriendsLink = async () => {
     try {
-      const res: any = await proxyFetchGet('/api/user/invite_code');
+      const res: any = await proxyFetchGet('/api/v1/user/invite_code');
       if (res?.invite_code) {
         const inviteLink = `https://www.eigent.ai/signup?invite_code=${res.invite_code}`;
         await navigator.clipboard.writeText(inviteLink);
@@ -144,7 +142,7 @@ function HeaderWin() {
       const task = chatStore.tasks[taskId];
 
       // Stop the task if it's running
-      if (task && task.status === 'running') {
+      if (task && task.status === ChatTaskStatus.RUNNING) {
         await fetchPut(`/task/${taskId}/take-control`, {
           action: 'stop',
         });
@@ -158,9 +156,9 @@ function HeaderWin() {
       }
 
       // Delete from history using historyId
-      if (historyId && task.status !== 'finished') {
+      if (historyId && task.status !== ChatTaskStatus.FINISHED) {
         try {
-          await proxyFetchDelete(`/api/chat/history/${historyId}`);
+          await proxyFetchDelete(`/api/v1/chat/history/${historyId}`);
           // Remove from local store
           chatStore.removeTask(taskId);
         } catch (error) {
@@ -204,47 +202,40 @@ function HeaderWin() {
   return (
     <div
       className={`drag absolute left-0 right-0 top-0 z-50 flex !h-9 items-center justify-between py-1 ${
-        platform === 'darwin' ? 'pl-20' : 'pl-2'
+        platform === 'darwin' ? 'pl-16' : 'pl-2'
       }`}
       id="titlebar"
       ref={titlebarRef}
     >
       {/* left */}
-      {platform !== 'darwin' && (
-        <div className="no-drag flex w-[70px] items-center justify-center">
-          <span className="text-label-md font-bold text-text-heading">
+      <div
+        className={`no-drag ml-2 mt-[1.5px] flex items-center justify-center gap-1 ${platform === 'darwin' ? 'w-8' : 'w-auto pr-4'}`}
+      >
+        <img src={defaultFolderIcon} alt="folder-icon" className="h-6 w-6" />
+        {platform !== 'darwin' && (
+          <span className="whitespace-nowrap text-label-md font-bold text-text-heading">
             Eigent
           </span>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* center */}
-      <div className="drag flex h-full w-full items-center justify-between">
+      <div className="drag flex h-full flex-1 items-center justify-between pr-2">
         <div className="relative z-50 flex h-full items-center">
-          <div className="flex flex-1 items-end justify-start pr-1 pt-1">
-            <Button
-              onClick={() => navigate('/history')}
-              variant="ghost"
-              size="icon"
-              className="no-drag h-6 w-6 p-0"
-            >
-              <img className="h-6 w-6" src={logoSrc} alt="folder-icon" />
-            </Button>
-          </div>
           {location.pathname === '/history' && (
             <div className="mr-1 flex items-center">
               <Button
                 variant="ghost"
                 size="xs"
-                className="no-drag"
+                className="no-drag rounded-full"
                 onClick={() => navigate('/')}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 text-text-label" />
               </Button>
             </div>
           )}
           {location.pathname !== '/history' && (
-            <div className="mr-1 flex items-center">
+            <div className="flex items-center">
               <TooltipSimple
                 content={t('layout.home')}
                 side="bottom"
@@ -253,7 +244,7 @@ function HeaderWin() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="no-drag"
+                  className="no-drag rounded-full"
                   onClick={() => navigate('/history')}
                 >
                   <House className="h-4 w-4" />
@@ -267,7 +258,7 @@ function HeaderWin() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="no-drag"
+                  className="no-drag rounded-full"
                   onClick={createNewProject}
                 >
                   <Plus className="h-4 w-4" />
@@ -286,7 +277,7 @@ function HeaderWin() {
                   <Button
                     id="active-task-title-btn"
                     variant="ghost"
-                    className="no-drag text-base font-bold"
+                    className="no-drag rounded-full text-base font-bold"
                     onClick={toggle}
                     size="sm"
                   >
@@ -319,6 +310,7 @@ function HeaderWin() {
             </>
           )}
         </div>
+
         {/* right */}
         {location.pathname !== '/history' && (
           <div
@@ -333,7 +325,7 @@ function HeaderWin() {
                 chatStore.tasks[chatStore.activeTaskId as string]
                   ?.hasMessages ||
                 chatStore.tasks[chatStore.activeTaskId as string]?.status !==
-                  'pending') && (
+                  ChatTaskStatus.PENDING) && (
                 <TooltipSimple
                   content={t('layout.end-project')}
                   side="bottom"
@@ -341,9 +333,9 @@ function HeaderWin() {
                 >
                   <Button
                     onClick={() => setEndDialogOpen(true)}
-                    variant="outline"
+                    variant="ghost"
                     size="xs"
-                    className="no-drag justify-center !text-text-cuation"
+                    className="no-drag justify-center rounded-full bg-surface-cuation !text-text-cuation"
                   >
                     <Power />
                     {t('layout.end-project')}
@@ -352,7 +344,7 @@ function HeaderWin() {
               )}
             {chatStore.activeTaskId &&
               chatStore.tasks[chatStore.activeTaskId as string]?.status ===
-                'finished' && (
+                ChatTaskStatus.FINISHED && (
                 <TooltipSimple
                   content={t('layout.share')}
                   side="bottom"
@@ -364,7 +356,7 @@ function HeaderWin() {
                     }
                     variant="ghost"
                     size="xs"
-                    className="no-drag bg-button-fill-information !text-button-fill-information-foreground"
+                    className="no-drag rounded-full bg-surface-information !text-text-information"
                   >
                     {t('layout.share')}
                   </Button>
@@ -396,7 +388,7 @@ function HeaderWin() {
                 onClick={getReferFriendsLink}
                 variant="ghost"
                 size="icon"
-                className="no-drag"
+                className="no-drag rounded-full"
               >
                 <img
                   src={appearance === 'dark' ? giftWhiteIcon : giftIcon}
@@ -414,7 +406,7 @@ function HeaderWin() {
                 onClick={() => navigate('/history?tab=settings')}
                 variant="ghost"
                 size="icon"
-                className="no-drag"
+                className="no-drag rounded-full"
               >
                 <Settings className="h-4 w-4" />
               </Button>

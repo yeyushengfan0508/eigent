@@ -16,11 +16,12 @@ import { proxyFetchDelete } from '@/api/http';
 import { Sparkle } from '@/components/animate-ui/icons/sparkle';
 import { Button } from '@/components/ui/button';
 import useChatStoreAdapter from '@/hooks/useChatStoreAdapter';
-import { replayProject } from '@/lib';
+import { loadProjectFromHistory } from '@/lib';
 import { share } from '@/lib/share';
 import { fetchGroupedHistoryTasks } from '@/service/historyApi';
 import { getAuthStore } from '@/store/authStore';
 import { useSidebarStore } from '@/store/sidebarStore';
+import { ChatTaskStatus } from '@/types/constants';
 import { HistoryTask, ProjectGroup } from '@/types/history';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -66,7 +67,7 @@ export default function HistorySidebar() {
   useEffect(() => {
     if (!chatStore) return;
     fetchGroupedHistoryTasks(setHistoryTasks);
-  }, [chatStore?.updateCount, chatStore]);
+  }, [chatStore?.updateCount]);
 
   // Group ongoing tasks by project
   const ongoingProjects = useMemo(() => {
@@ -90,7 +91,7 @@ export default function HistorySidebar() {
         Object.keys(csState.tasks || {}).forEach((taskId) => {
           const task = csState.tasks[taskId];
           // Only include ongoing tasks
-          if (task.status !== 'finished' && !task.type) {
+          if (task.status !== ChatTaskStatus.FINISHED && !task.type) {
             hasOngoingTasks = true;
             taskCount++;
             if (task.tokens) {
@@ -135,24 +136,36 @@ export default function HistorySidebar() {
     navigate('/');
   };
 
-  const handleReplay = async (
+  const handleLoadProject = async (
     projectId: string,
     question: string,
     historyId: string
   ) => {
     close();
-    // Get task IDs from the API response data in descending order (newest first)
     const project = historyTasks.find((p) => p.project_id === projectId);
     const taskIdsList = project?.tasks.map(
       (task: HistoryTask) => task.task_id
     ) || [projectId];
-    await replayProject(
+
+    // If no tasks to replay, create an empty project
+    if (!taskIdsList || taskIdsList.length === 0) {
+      projectStore.createProject(
+        project?.project_name || 'Project',
+        'Project with triggers but no tasks',
+        projectId
+      );
+      navigate('/');
+      return;
+    }
+
+    await loadProjectFromHistory(
       projectStore,
       navigate,
       projectId,
       question,
       historyId,
-      taskIdsList
+      taskIdsList,
+      project?.project_name
     );
   };
 
@@ -177,7 +190,7 @@ export default function HistorySidebar() {
     historyId: string
   ) => {
     try {
-      const res = await proxyFetchDelete(`/api/chat/history/${historyId}`);
+      const res = await proxyFetchDelete(`/api/v1/chat/history/${historyId}`);
       console.log(res);
       // also delete local files for this task if available (via Electron IPC)
       const { email } = getAuthStore();
@@ -223,7 +236,7 @@ export default function HistorySidebar() {
           );
           try {
             const deleteRes = await proxyFetchDelete(
-              `/api/chat/history/${history.id}`
+              `/api/v1/chat/history/${history.id}`
             );
             console.log(
               `Successfully deleted task ${history.task_id}:`,
@@ -284,8 +297,8 @@ export default function HistorySidebar() {
       navigate(`/`);
       close();
     } else {
-      // if there is no record, execute replay
-      handleReplay(projectId, question, historyId);
+      // if there is no record, load final state (no replay animation)
+      handleLoadProject(projectId, question, historyId);
     }
   };
 
@@ -404,7 +417,7 @@ export default function HistorySidebar() {
                           <Tag variant="info" size="sm">
                             <Hash className="h-3.5 w-3.5" />
                             <span className="text-xs">
-                              {project.total_tokens || 0}
+                              {(project.total_tokens || 0).toLocaleString()}
                             </span>
                           </Tag>
                         </TooltipSimple>
@@ -523,7 +536,7 @@ export default function HistorySidebar() {
                           <Tag variant="info" size="sm">
                             <Hash className="h-3.5 w-3.5" />
                             <span className="text-xs">
-                              {project.total_tokens || 0}
+                              {(project.total_tokens || 0).toLocaleString()}
                             </span>
                           </Tag>
                         </TooltipSimple>

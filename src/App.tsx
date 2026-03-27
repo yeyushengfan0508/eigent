@@ -12,14 +12,17 @@
 // limitations under the License.
 // ========= Copyright 2025-2026 @ Eigent.ai All Rights Reserved. =========
 
-import animationData from '@/assets/animation/openning_animaiton.json';
-import { AnimationJson } from '@/components/AnimationJson';
+import { queryClient } from '@/lib/queryClient';
 import AppRoutes from '@/routers/index';
 import { stackClientApp } from '@/stack/client';
 import { StackProvider, StackTheme } from '@stackframe/react';
-import React, { useEffect, useState } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { useBackgroundTaskProcessor } from './hooks/useBackgroundTaskProcessor';
+import { useExecutionSubscription } from './hooks/useExecutionSubscription';
+import { useTriggerTaskExecutor } from './hooks/useTriggerTaskExecutor';
 import { hasStackKeys } from './lib';
 import { useAuthStore } from './store/authStore';
 
@@ -28,8 +31,16 @@ const HAS_STACK_KEYS = hasStackKeys();
 function App() {
   const navigate = useNavigate();
   const { setInitState } = useAuthStore();
-  const [animationFinished, setAnimationFinished] = useState(false);
-  const { isFirstLaunch } = useAuthStore();
+  const { token } = useAuthStore();
+
+  // Subscribe to execution events when user is authenticated
+  // Note: Removed triggers.length check to prevent reconnection on every trigger update
+  const shouldSubscribe = !!token;
+  useExecutionSubscription(shouldSubscribe);
+  useBackgroundTaskProcessor();
+
+  // Execute triggered tasks automatically when WebSocket events are received
+  useTriggerTaskExecutor();
 
   useEffect(() => {
     const handleShareCode = (event: any, share_token: string) => {
@@ -67,38 +78,29 @@ function App() {
     };
   }, [navigate, setInitState]);
 
-  // render main content
-  const renderMainContent = () => {
-    if (isFirstLaunch && !animationFinished) {
-      return (
-        <AnimationJson
-          onComplete={() => setAnimationFinished(true)}
-          animationData={animationData}
-        />
-      );
-    }
-    return <AppRoutes />;
-  };
-
   // render wrapper
   const renderWrapper = (children: React.ReactNode) => {
+    const content = (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
     if (HAS_STACK_KEYS) {
       return (
         <StackProvider app={stackClientApp}>
-          <StackTheme>{children}</StackTheme>
+          <StackTheme>{content}</StackTheme>
           <Toaster style={{ zIndex: '999999 !important', position: 'fixed' }} />
         </StackProvider>
       );
     }
     return (
       <>
-        {children}
+        {content}
         <Toaster style={{ zIndex: '999999 !important', position: 'fixed' }} />
       </>
     );
   };
 
-  return renderWrapper(renderMainContent());
+  return renderWrapper(<AppRoutes />);
 }
 
 export default App;

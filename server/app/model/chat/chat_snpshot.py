@@ -12,16 +12,16 @@
 # limitations under the License.
 # ========= Copyright 2025-2026 @ Eigent.ai All Rights Reserved. =========
 
-from typing import Optional
-from sqlalchemy import Column, Integer, text
-from sqlmodel import Field
-from app.model.abstract.model import AbstractModel, DefaultTimes
-from pydantic import BaseModel
-import os
 import base64
+import os
 import time
 
-from app.component.sqids import encode_user_id
+from pydantic import BaseModel
+from sqlalchemy import Column, Integer, text
+from sqlmodel import Field
+
+from app.core.sqids import encode_user_id
+from app.model.abstract.model import AbstractModel, DefaultTimes
 
 
 class ChatSnapshot(AbstractModel, DefaultTimes, table=True):
@@ -51,7 +51,7 @@ class ChatSnapshot(AbstractModel, DefaultTimes, table=True):
 
 class ChatSnapshotIn(BaseModel):
     api_task_id: str
-    user_id: Optional[int] = None
+    user_id: int | None = None
     camel_task_id: str
     browser_url: str
     image_base64: str
@@ -68,3 +68,11 @@ class ChatSnapshotIn(BaseModel):
         with open(file_path, "wb") as f:
             f.write(base64.b64decode(image_base64))
         return f"/public/upload/{user_dir}/{api_task_id}/{filename}"
+
+
+class ChatSnapshotUpdate(BaseModel):
+    """Update model - only updatable fields."""
+    api_task_id: str | None = None
+    camel_task_id: str | None = None
+    browser_url: str | None = None
+    image_path: str | None = None

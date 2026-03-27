@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/popover';
 import { Tag } from '@/components/ui/tag';
 import { TooltipSimple } from '@/components/ui/tooltip';
+import { formatDateTime } from '@/lib/utils';
+import { ChatTaskStatus } from '@/types/constants';
 import { HistoryTask } from '@/types/history';
 import {
   CheckCircle,
@@ -63,7 +65,7 @@ export default function TaskItem({
   const { t } = useTranslation();
 
   // Check if task is paused (for ongoing tasks)
-  const isPaused = (task as any)._taskData?.status === 'pause';
+  const isPaused = (task as any)._taskData?.status === ChatTaskStatus.PAUSE;
 
   const getStatusTag = (status: number) => {
     // ChatStatus enum: ongoing = 1, done = 2
@@ -94,12 +96,7 @@ export default function TaskItem({
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    return (
-      date.toLocaleDateString() +
-      ' ' +
-      date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    );
+    return formatDateTime(dateString, 'MMM dd, yyyy HH:mm');
   };
 
   return (
