@@ -66,3 +66,5 @@ storybook-static
 nul
 
 backend/benchmark/jobs/
+
+.history
